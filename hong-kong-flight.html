@@ -1,0 +1,1732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HK Sky Runner - Hong Kong Motion Flight</title>
+<style>
+  :root{
+    --bg:#070d16;
+    --panel:rgba(14,24,38,.82);
+    --panel-solid:#101b2b;
+    --line:rgba(120,170,220,.22);
+    --ink:#e8f1fb;
+    --muted:#9db4cc;
+    --accent:#31b0ff;
+    --accent2:#ffcc33;
+    --good:#3ddc84;
+    --danger:#ff5d6c;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 700px at 70% -10%, #143155 0%, transparent 60%),
+      radial-gradient(900px 600px at 10% 110%, #0d2a44 0%, transparent 55%),
+      var(--bg);
+    color:var(--ink);
+    font-family:"Avenir Next","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    overflow:hidden;
+  }
+  button{font-family:inherit}
+  .screen{position:fixed;inset:0;display:none;overflow:auto}
+  .screen.active{display:block}
+  #screen-game.active{display:block;overflow:hidden}
+
+  /* ---------- generic ---------- */
+  .btn{
+    appearance:none;border:1px solid var(--line);
+    background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02));
+    color:var(--ink);padding:10px 16px;border-radius:10px;font-size:14px;
+    font-weight:600;letter-spacing:.3px;cursor:pointer;transition:.15s;
+  }
+  .btn:hover{border-color:rgba(120,180,240,.55);transform:translateY(-1px)}
+  .btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+  .btn.primary{background:linear-gradient(180deg,#37b6ff,#1478c9);border-color:#4cc2ff;color:#04121f}
+  .btn.gold{background:linear-gradient(180deg,#ffd65c,#e0a300);border-color:#ffdf7a;color:#2a1c00}
+  .btn.danger{background:linear-gradient(180deg,rgba(255,93,108,.28),rgba(255,93,108,.1));border-color:rgba(255,93,108,.6)}
+  .btn.ghost{background:rgba(255,255,255,.04)}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+  .field label{font-size:12px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted)}
+  select,input[type=range]{width:100%}
+  select{
+    background:var(--panel-solid);color:var(--ink);border:1px solid var(--line);
+    border-radius:9px;padding:10px;font-size:14px;outline:none;
+  }
+  input[type=range]{accent-color:var(--accent)}
+  .hint{font-size:12px;color:var(--muted);line-height:1.5}
+  .pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;
+    border:1px solid var(--line);color:var(--muted);letter-spacing:.6px}
+  .pill.on{color:#062b16;background:var(--good);border-color:var(--good)}
+  .pill.warn{color:#2a1c00;background:var(--accent2);border-color:var(--accent2)}
+
+  /* ---------- welcome ---------- */
+  .wrap{max-width:1080px;margin:0 auto;padding:48px 28px}
+  .brand{font-size:13px;letter-spacing:5px;color:var(--accent);text-transform:uppercase}
+  h1{font-size:clamp(34px,6vw,66px);margin:8px 0 6px;line-height:1.02;font-weight:800}
+  h1 span{background:linear-gradient(90deg,#48c2ff,#ffd763);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{font-size:17px;color:var(--muted);max-width:640px;line-height:1.6}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin:34px 0}
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;
+    backdrop-filter:blur(8px);
+  }
+  .card h3{margin:0 0 8px;font-size:15px;letter-spacing:.4px}
+  .card p{margin:0;font-size:13px;color:var(--muted);line-height:1.55}
+  .num{display:inline-flex;width:26px;height:26px;border-radius:8px;background:rgba(49,176,255,.15);
+    color:var(--accent);align-items:center;justify-content:center;font-weight:700;margin-right:9px;font-size:13px}
+  .landmarks{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .lm{font-size:12px;padding:6px 12px;border-radius:999px;background:rgba(255,204,51,.1);
+    border:1px solid rgba(255,204,51,.35);color:#ffe08a}
+
+  /* ---------- setup ---------- */
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:16px 24px;border-bottom:1px solid var(--line);position:sticky;top:0;
+    background:rgba(7,13,22,.85);backdrop-filter:blur(10px);z-index:20}
+  .topbar .title{font-weight:800;letter-spacing:1px}
+  .setup-grid{display:grid;grid-template-columns:minmax(320px,1.15fr) minmax(320px,.85fr);gap:22px;padding:22px 24px 60px;max-width:1280px;margin:0 auto}
+  @media(max-width:900px){.setup-grid{grid-template-columns:1fr}}
+  .cam-shell{position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#04070d}
+  #setup-canvas{width:100%;display:block;aspect-ratio:4/3;background:#04070d}
+  .cam-badge{position:absolute;top:10px;left:10px;font-size:11px;padding:4px 10px;border-radius:999px;
+    background:rgba(0,0,0,.55);border:1px solid var(--line)}
+  .cam-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    text-align:center;color:var(--muted);font-size:14px;padding:24px;line-height:1.6}
+  .bar{margin-top:10px}
+  .bar .track{height:10px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden;border:1px solid var(--line)}
+  .bar .fill{height:100%;width:0%;background:linear-gradient(90deg,#31b0ff,#ffcc33);transition:width .12s linear}
+  .bar .lbl{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px}
+  .cal-steps{list-style:none;padding:0;margin:14px 0 0;font-size:13px}
+  .cal-steps li{padding:8px 12px;border-radius:9px;border:1px solid transparent;color:var(--muted);display:flex;gap:10px;align-items:center}
+  .cal-steps li.active{background:rgba(49,176,255,.12);border-color:rgba(49,176,255,.4);color:var(--ink)}
+  .cal-steps li.done{color:var(--good)}
+  .cal-steps li .dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex:none;opacity:.7}
+  .records{max-height:230px;overflow:auto;border:1px solid var(--line);border-radius:12px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--panel-solid)}
+  td.num-col{text-align:right;font-variant-numeric:tabular-nums}
+  .save-flash{color:var(--good);font-size:12px;opacity:0;transition:opacity .3s}
+  .save-flash.show{opacity:1}
+
+  /* ---------- game ---------- */
+  #game-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .hud{position:absolute;inset:0;pointer-events:none}
+  .hud .chip{
+    background:rgba(6,12,22,.6);border:1px solid var(--line);border-radius:12px;
+    padding:8px 14px;backdrop-filter:blur(6px);font-variant-numeric:tabular-nums;
+  }
+  .hud-tl{position:absolute;top:16px;left:16px;display:flex;flex-direction:column;gap:10px}
+  .hud-tr{position:absolute;top:16px;right:16px;display:flex;flex-direction:column;gap:10px;align-items:flex-end}
+  .hud-timer{font-size:24px;font-weight:800}
+  .hud-timer.low{color:var(--danger)}
+  .hud-scene{font-size:12px;color:var(--muted)}
+  .coins-box{display:flex;align-items:center;gap:10px;font-size:26px;font-weight:800;color:var(--accent2);padding:10px 16px}
+  .coin-dot{width:22px;height:22px;border-radius:50%;
+    background:radial-gradient(circle at 34% 30%,#fff2b0,#ffc21e 55%,#c98b00);
+    box-shadow:0 0 12px rgba(255,204,51,.65);border:2px solid #ffe89a}
+  .hud-speed{font-size:12px;color:var(--muted)}
+  .hud-controls{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);
+    display:flex;gap:10px;pointer-events:auto;background:rgba(6,12,22,.6);
+    border:1px solid var(--line);padding:10px;border-radius:14px;backdrop-filter:blur(8px)}
+  .hud-tracking{position:absolute;bottom:92px;left:16px;width:210px;display:flex;flex-direction:column;gap:8px}
+  .hud-tracking .bar .track{height:8px}
+  .hud-tracking .lbl{font-size:10px;letter-spacing:1px}
+  #pip-canvas{position:absolute;bottom:16px;right:16px;width:220px;aspect-ratio:4/3;
+    border-radius:12px;border:1px solid var(--line);background:#04070d;display:block}
+  .game-message{position:absolute;top:44%;left:50%;transform:translate(-50%,-50%);
+    font-size:clamp(40px,9vw,110px);font-weight:900;letter-spacing:4px;text-align:center;
+    text-shadow:0 8px 40px rgba(0,0,0,.6);opacity:0;transition:opacity .25s}
+  .game-message.show{opacity:1}
+  .game-message small{display:block;font-size:16px;letter-spacing:2px;font-weight:600;color:var(--muted);margin-top:8px}
+
+  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+    background:rgba(3,7,13,.72);backdrop-filter:blur(6px);z-index:50}
+  .modal.show{display:flex}
+  .modal .panel{background:var(--panel-solid);border:1px solid var(--line);border-radius:20px;
+    padding:30px;width:min(440px,92vw);box-shadow:0 40px 90px rgba(0,0,0,.55)}
+  .modal h2{margin:0 0 4px;font-size:26px}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0}
+  .stat{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .stat .k{font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+  .stat .v{font-size:22px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums}
+  #loading{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+    flex-direction:column;gap:14px;background:rgba(4,8,14,.85);z-index:80}
+  #loading.show{display:flex}
+  .spinner{width:44px;height:44px;border-radius:50%;border:4px solid rgba(255,255,255,.15);
+    border-top-color:var(--accent);animation:spin .9s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- ============================ WELCOME ============================ -->
+<section id="screen-welcome" class="screen active">
+  <div class="wrap">
+    <div class="brand">Body Motion Flight Simulator</div>
+    <h1>HK <span>Sky Runner</span></h1>
+    <p class="sub">Fly a plane above Hong Kong using your own body movement. A webcam tracks your
+      shoulders, trunk or lower limbs with MediaPipe, and maps your range of motion to the controls
+      of the aircraft.</p>
+
+    <div class="landmarks">
+      <span class="lm">Victoria Harbour</span>
+      <span class="lm">Tsim Sha Tsui</span>
+      <span class="lm">Central</span>
+      <span class="lm">Tsing Ma Bridge</span>
+      <span class="lm">HK International Airport</span>
+    </div>
+
+    <div class="cards">
+      <div class="card"><h3><span class="num">1</span>Move to fly</h3><p>Choose a body part, calibrate your full range of motion, then lean or lift it to steer the plane up, down, left and right.</p></div>
+      <div class="card"><h3><span class="num">2</span>Collect coins</h3><p>Golden coins float at different altitudes over the harbour. Fly through them to collect and hear the chime.</p></div>
+      <div class="card"><h3><span class="num">3</span>Race the clock</h3><p>Pick a 5, 10 or 15 minute flight, or go unlimited. Every episode is scored and saved to your log.</p></div>
+    </div>
+
+    <div class="row">
+      <button class="btn primary" id="btn-to-setup">Continue to Setup</button>
+      <button class="btn ghost" id="btn-welcome-help">Camera requirements</button>
+    </div>
+    <p class="hint" style="margin-top:18px">Best in Chrome or Edge. A webcam is required. You will be asked to grant camera access.</p>
+  </div>
+</section>
+
+<!-- ============================ SETUP ============================ -->
+<section id="screen-setup" class="screen">
+  <div class="topbar">
+    <div class="title">Flight Setup &amp; Calibration</div>
+    <div class="row">
+      <button class="btn ghost" id="btn-back-welcome">Back</button>
+      <button class="btn primary" id="btn-to-game">Start Flight</button>
+    </div>
+  </div>
+
+  <div class="setup-grid">
+    <!-- camera / calibration -->
+    <div>
+      <div class="cam-shell">
+        <canvas id="setup-canvas"></canvas>
+        <div class="cam-badge" id="cam-badge">Camera off</div>
+        <div class="cam-msg" id="cam-msg">Enable the camera to preview the tracking.</div>
+      </div>
+
+      <div class="bar">
+        <div class="lbl"><span>Horizontal (left / right)</span><span id="live-x">0.00</span></div>
+        <div class="track"><div class="fill" id="fill-x"></div></div>
+      </div>
+      <div class="bar">
+        <div class="lbl"><span>Vertical (down / up)</span><span id="live-y">0.00</span></div>
+        <div class="track"><div class="fill" id="fill-y"></div></div>
+      </div>
+
+      <div class="row" style="margin-top:16px">
+        <button class="btn" id="btn-enable-cam">Enable Camera</button>
+        <button class="btn gold" id="btn-calibrate" disabled>Start Calibration</button>
+        <button class="btn ghost" id="btn-clear-cal">Clear Calibration</button>
+      </div>
+
+      <ul class="cal-steps" id="cal-steps">
+        <li data-step="0"><span class="dot"></span>Stand relaxed in the centre of the frame</li>
+        <li data-step="1"><span class="dot"></span>Move the selected part fully UP</li>
+        <li data-step="2"><span class="dot"></span>Move the selected part fully DOWN</li>
+        <li data-step="3"><span class="dot"></span>Move the selected part fully LEFT</li>
+        <li data-step="4"><span class="dot"></span>Move the selected part fully RIGHT</li>
+      </ul>
+      <p class="hint" id="cal-status" style="margin-top:12px">Calibration not started. Your maximum range of motion will be recorded and saved.</p>
+    </div>
+
+    <!-- settings -->
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <h3>Control</h3>
+        <div class="field">
+          <label for="sel-part">Tracking body part</label>
+          <select id="sel-part">
+            <option value="shoulder">Upper limb - shoulder</option>
+            <option value="trunk">Trunk</option>
+            <option value="hip">Lower limb - hip</option>
+            <option value="knee">Lower limb - knee</option>
+            <option value="ankle">Lower limb - ankle</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="sel-side">Side</label>
+          <select id="sel-side">
+            <option value="both">Both (midpoint)</option>
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="rng-sens">Sensitivity <span id="sens-val" class="pill">1.0x</span></label>
+          <input type="range" id="rng-sens" min="0.4" max="2.4" step="0.1" value="1" />
+        </div>
+        <div class="row">
+          <label class="pill" style="cursor:pointer"><input type="checkbox" id="chk-invert" style="vertical-align:middle;margin-right:6px"/>Invert vertical</label>
+          <label class="pill" style="cursor:pointer"><input type="checkbox" id="chk-dead" checked style="vertical-align:middle;margin-right:6px"/>Dead zone</label>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <h3>Session</h3>
+        <div class="field">
+          <label for="sel-time">Time limit</label>
+          <select id="sel-time">
+            <option value="5">5 minutes</option>
+            <option value="10">10 minutes</option>
+            <option value="15">15 minutes</option>
+            <option value="0">Unlimited</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="sel-scene">Hong Kong scene</label>
+          <select id="sel-scene">
+            <option value="harbour">Victoria Harbour</option>
+            <option value="central">Central</option>
+            <option value="tst">Tsim Sha Tsui</option>
+            <option value="bridge">Tsing Ma Bridge</option>
+            <option value="airport">HK International Airport</option>
+            <option value="full">Full Hong Kong Tour (all landmarks)</option>
+          </select>
+        </div>
+        <div class="row">
+          <button class="btn" id="btn-save-settings">Save Settings</button>
+          <span class="save-flash" id="save-flash">Saved to this browser</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Episode records <span class="pill" id="rec-count">0</span></h3>
+        <p class="hint" style="margin:0 0 10px">Each completed flight is stored locally.</p>
+        <div class="records">
+          <table>
+            <thead><tr><th>When</th><th>Scene</th><th>Part</th><th class="num-col">Coins</th><th class="num-col">Score</th></tr></thead>
+            <tbody id="rec-body"><tr><td colspan="5" class="hint">No flights recorded yet.</td></tr></tbody>
+          </table>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn ghost" id="btn-clear-records">Clear Records</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ GAME ============================ -->
+<section id="screen-game" class="screen">
+  <canvas id="game-canvas"></canvas>
+
+  <div class="hud">
+    <div class="hud-tl">
+      <div class="chip hud-timer" id="hud-timer">--:--</div>
+      <div class="chip hud-scene" id="hud-scene">Victoria Harbour</div>
+    </div>
+
+    <div class="hud-tr">
+      <div class="chip coins-box"><span class="coin-dot"></span><span id="hud-coins">0</span></div>
+      <div class="chip hud-speed" id="hud-speed">Speed 0</div>
+    </div>
+
+    <div class="hud-tracking">
+      <div class="bar"><div class="lbl"><span>LEFT / RIGHT</span><span id="hud-nx">0.00</span></div>
+        <div class="track"><div class="fill" id="hud-fx"></div></div></div>
+      <div class="bar"><div class="lbl"><span>DOWN / UP</span><span id="hud-ny">0.00</span></div>
+        <div class="track"><div class="fill" id="hud-fy"></div></div></div>
+    </div>
+
+    <canvas id="pip-canvas"></canvas>
+
+    <div class="game-message" id="game-message"></div>
+
+    <div class="hud-controls">
+      <button class="btn primary" id="btn-g-start">Start</button>
+      <button class="btn" id="btn-g-stop">Stop</button>
+      <button class="btn" id="btn-g-restart">Restart</button>
+      <button class="btn danger" id="btn-g-exit">Exit</button>
+      <button class="btn ghost" id="btn-g-sound">Sound: On</button>
+      <button class="btn ghost" id="btn-g-pip">Camera: On</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ MODAL ============================ -->
+<div class="modal" id="result-modal">
+  <div class="panel">
+    <h2 id="result-title">Flight complete</h2>
+    <p class="hint" id="result-sub">Nice work up there.</p>
+    <div class="stat-grid">
+      <div class="stat"><div class="k">Coins</div><div class="v" id="res-coins">0</div></div>
+      <div class="stat"><div class="k">Flight time</div><div class="v" id="res-time">0:00</div></div>
+      <div class="stat"><div class="k">Scene</div><div class="v" id="res-scene" style="font-size:15px">-</div></div>
+      <div class="stat"><div class="k">Score</div><div class="v" id="res-score">0</div></div>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="btn-res-again">Fly Again</button>
+      <button class="btn" id="btn-res-setup">Change Setup</button>
+      <button class="btn ghost" id="btn-res-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="loading"><div class="spinner"></div><div id="loading-text">Loading pose model...</div></div>
+<video id="cam-video" playsinline muted autoplay class="hidden"></video>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+
+/* =====================================================================
+   CONFIG
+   ===================================================================== */
+const MP_VERSION = '0.10.14';
+const MP_BUNDLE  = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@' + MP_VERSION + '/vision_bundle.mjs';
+const MP_WASM    = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@' + MP_VERSION + '/wasm';
+const MP_MODEL   = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
+
+const LS_CAL   = 'hkskyrunner.calibration.v1';
+const LS_SET   = 'hkskyrunner.settings.v1';
+const LS_REC   = 'hkskyrunner.records.v1';
+
+const BASE_ALT   = 58;
+const LAT_RANGE  = 46;
+const VERT_RANGE = 26;
+const SPEED      = 78;
+const COIN_COUNT = 26;
+const COIN_HIT_XY = 3.4;
+
+const PART_LABEL = { shoulder:'shoulder', trunk:'trunk', hip:'hip', knee:'knee', ankle:'ankle' };
+const LM = { shoulder:[11,12], hip:[23,24], knee:[25,26], ankle:[27,28] };
+
+const SCENES = {
+  harbour:{ name:'Victoria Harbour', repeat:820, count:4, fn:buildHarbour },
+  central:{ name:'Central',          repeat:700, count:4, fn:buildCentral },
+  tst:    { name:'Tsim Sha Tsui',    repeat:760, count:4, fn:buildTST },
+  bridge: { name:'Tsing Ma Bridge',  repeat:620, count:5, fn:buildBridge },
+  airport:{ name:'HK International Airport', repeat:820, count:4, fn:buildAirport },
+  full:   { name:'Full Hong Kong Tour', repeat:760, count:5, fn:buildHarbour,
+            seq:[buildHarbour, buildCentral, buildTST, buildBridge, buildAirport] }
+};
+
+/* =====================================================================
+   DOM
+   ===================================================================== */
+const $ = function(id){ return document.getElementById(id); };
+const screens = {
+  welcome: $('screen-welcome'),
+  setup:   $('screen-setup'),
+  game:    $('screen-game')
+};
+const video       = $('cam-video');
+const setupCanvas = $('setup-canvas');
+const pipCanvas   = $('pip-canvas');
+const loading     = $('loading');
+
+/* =====================================================================
+   STATE
+   ===================================================================== */
+const state = {
+  screen: 'welcome',
+  pose: null,
+  poseReady: false,
+  cameraReady: false,
+  streaming: false,
+  landmarks: null,
+  lastVideoTime: -1,
+  raw: { x:0.5, y:0.5 },
+  hasRaw: false,
+  smoothed: { x:0, y:0 },
+  hasSmooth: false,
+  settings: loadSettings(),
+  calibration: loadCal(),
+  cal: { active:false, step:-1, t:0, acc:{ x:0,y:0,n:0, minX:Infinity,maxX:-Infinity,minY:Infinity,maxY:-Infinity }, lastStep:null },
+  showPip: true,
+  soundOn: true,
+  keys: {}
+};
+
+function loadSettings(){
+  let s = {};
+  try { s = JSON.parse(localStorage.getItem(LS_SET) || '{}') || {}; } catch(e){ s = {}; }
+  return {
+    part: s.part || 'shoulder',
+    side: s.side || 'both',
+    sens: typeof s.sens === 'number' ? s.sens : 1,
+    invert: !!s.invert,
+    dead: s.dead === undefined ? true : !!s.dead,
+    timeLimit: s.timeLimit || '5',
+    scene: SCENES[s.scene] ? s.scene : 'harbour'
+  };
+}
+function saveSettings(){
+  try { localStorage.setItem(LS_SET, JSON.stringify(state.settings)); } catch(e){}
+}
+function loadCal(){
+  try { return JSON.parse(localStorage.getItem(LS_CAL) || '{}') || {}; } catch(e){ return {}; }
+}
+function saveCal(){ try { localStorage.setItem(LS_CAL, JSON.stringify(state.calibration)); } catch(e){} }
+function calKey(){ return state.settings.part + ':' + (state.settings.part === 'trunk' ? 'both' : state.settings.side); }
+
+function loadRecords(){
+  try { return JSON.parse(localStorage.getItem(LS_REC) || '[]') || []; } catch(e){ return []; }
+}
+function saveRecords(list){ try { localStorage.setItem(LS_REC, JSON.stringify(list)); } catch(e){} }
+
+/* =====================================================================
+   AUDIO
+   ===================================================================== */
+let audioCtx = null;
+function audio(){
+  if(!audioCtx){ try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ audioCtx = null; } }
+  if(audioCtx && audioCtx.state === 'suspended'){ audioCtx.resume(); }
+  return audioCtx;
+}
+function playCoin(){
+  if(!state.soundOn) return;
+  const ac = audio(); if(!ac) return;
+  const t = ac.currentTime;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = 'square';
+  o.frequency.setValueAtTime(988, t);
+  o.frequency.setValueAtTime(1319, t + 0.07);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.22, t + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
+  o.connect(g); g.connect(ac.destination);
+  o.start(t); o.stop(t + 0.28);
+}
+function playChime(up){
+  if(!state.soundOn) return;
+  const ac = audio(); if(!ac) return;
+  const t = ac.currentTime;
+  const notes = up ? [523,659,784,1047] : [784,587,523];
+  notes.forEach(function(f,i){
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'sine'; o.frequency.value = f;
+    const s = t + i*0.12;
+    g.gain.setValueAtTime(0.0001, s);
+    g.gain.exponentialRampToValueAtTime(0.2, s + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, s + 0.4);
+    o.connect(g); g.connect(ac.destination);
+    o.start(s); o.stop(s + 0.42);
+  });
+}
+
+/* =====================================================================
+   SCREEN ROUTER
+   ===================================================================== */
+function go(screen){
+  state.screen = screen;
+  Object.keys(screens).forEach(function(k){ screens[k].classList.toggle('active', k === screen); });
+  if(screen === 'game'){ resizeGame(); }
+  if(screen === 'setup'){ resizeSetupCanvas(); }
+}
+
+/* =====================================================================
+   CAMERA + POSE
+   ===================================================================== */
+async function enableCamera(){
+  if(state.cameraReady) return true;
+  const msg = $('cam-msg');
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video:{ width:960, height:720, facingMode:'user' }, audio:false });
+    video.srcObject = stream;
+    await video.play();
+    state.cameraReady = true;
+    state.streaming = true;
+    $('cam-badge').textContent = 'Camera on';
+    msg.classList.add('hidden');
+    return true;
+  } catch(err){
+    $('cam-badge').textContent = 'Camera error';
+    msg.classList.remove('hidden');
+    msg.textContent = 'Camera could not be started: ' + (err && err.message ? err.message : err) +
+      '\n\nGrant camera permission and make sure no other app is using the webcam. Tip: open this file through a local server (python3 -m http.server) if your browser blocks the camera on file:// URLs.';
+    return false;
+  }
+}
+
+async function initPose(){
+  if(state.poseReady) return true;
+  loading.classList.add('show');
+  $('loading-text').textContent = 'Loading MediaPipe pose model...';
+  try {
+    const mod = await import(MP_BUNDLE);
+    const fileset = await mod.FilesetResolver.forVisionTasks(MP_WASM);
+    const opts = { runningMode:'VIDEO', numPoses:1 };
+    try {
+      state.pose = await mod.PoseLandmarker.createFromOptions(fileset, {
+        baseOptions:{ modelAssetPath:MP_MODEL, delegate:'GPU' }, runningMode:'VIDEO', numPoses:1
+      });
+    } catch(gpuErr){
+      state.pose = await mod.PoseLandmarker.createFromOptions(fileset, {
+        baseOptions:{ modelAssetPath:MP_MODEL, delegate:'CPU' }, runningMode:'VIDEO', numPoses:1
+      });
+    }
+    state.poseReady = true;
+    loading.classList.remove('show');
+    return true;
+  } catch(err){
+    loading.classList.remove('show');
+    console.error(err);
+    alert('Could not load the MediaPipe pose model. Check your internet connection and reload.\n\n' + err);
+    return false;
+  }
+}
+
+function landmarksToControl(lms){
+  const part = state.settings.part;
+  const side = part === 'trunk' ? 'both' : state.settings.side;
+  function pt(i){ return lms[i]; }
+  function mid(a,b){ return { x:(a.x+b.x)/2, y:(a.y+b.y)/2, visibility:Math.min(a.visibility||1,b.visibility||1) }; }
+  function pick(pair){
+    const l = pt(pair[0]), r = pt(pair[1]);
+    if(!l || !r) return null;
+    if(side === 'left') return l;
+    if(side === 'right') return r;
+    return mid(l,r);
+  }
+  let p = null;
+  if(part === 'shoulder') p = pick(LM.shoulder);
+  else if(part === 'hip') p = pick(LM.hip);
+  else if(part === 'knee') p = pick(LM.knee);
+  else if(part === 'ankle') p = pick(LM.ankle);
+  else if(part === 'trunk'){
+    const sh = mid(pt(11), pt(12));
+    const hp = mid(pt(23), pt(24));
+    p = mid(sh, hp);
+  }
+  if(!p || !isFinite(p.x) || !isFinite(p.y)) return null;
+  return p;
+}
+
+function updatePose(){
+  if(!state.poseReady || !state.cameraReady) return;
+  if(video.readyState < 2 || !video.videoWidth) return;
+  const now = performance.now();
+  if(video.currentTime === state.lastVideoTime) return;
+  state.lastVideoTime = video.currentTime;
+  let res;
+  try { res = state.pose.detectForVideo(video, now); }
+  catch(e){ return; }
+  if(!res || !res.landmarks || !res.landmarks.length){ state.landmarks = null; return; }
+  const lms = res.landmarks[0];
+  state.landmarks = lms;
+  const p = landmarksToControl(lms);
+  if(p && (p.visibility === undefined || p.visibility > 0.35)){
+    // Mirror horizontally so the player's own right maps to screen right.
+    state.raw.x = 1 - p.x;
+    state.raw.y = p.y;
+    state.hasRaw = true;
+    if(state.cal.active) captureCalibration();
+  }
+}
+
+/* =====================================================================
+   CALIBRATION
+   ===================================================================== */
+const CAL_STEPS = [
+  { label:'Stand relaxed in the centre', dur:2.2, mode:'neutral' },
+  { label:'Move the {part} fully UP',    dur:2.6, mode:'minY' },
+  { label:'Move the {part} fully DOWN',  dur:2.6, mode:'maxY' },
+  { label:'Move the {part} fully LEFT',  dur:2.6, mode:'minX' },
+  { label:'Move the {part} fully RIGHT', dur:2.6, mode:'maxX' }
+];
+
+function startCalibration(){
+  if(!state.cameraReady || !state.hasRaw){
+    $('cal-status').textContent = 'Waiting for the camera to detect your body before calibrating.';
+    return;
+  }
+  state.cal.active = true;
+  state.cal.step = 0;
+  state.cal.t = 0;
+  state.cal.acc = { x:0,y:0,n:0, minX:Infinity,maxX:-Infinity,minY:Infinity,maxY:-Infinity };
+  $('btn-calibrate').disabled = true;
+  renderCalSteps();
+}
+
+function captureCalibration(){
+  if(!state.cal.active || !state.hasRaw) return;
+  const acc = state.cal.acc;
+  acc.minX = Math.min(acc.minX, state.raw.x);
+  acc.maxX = Math.max(acc.maxX, state.raw.x);
+  acc.minY = Math.min(acc.minY, state.raw.y);
+  acc.maxY = Math.max(acc.maxY, state.raw.y);
+  acc.x += state.raw.x; acc.y += state.raw.y; acc.n++;
+}
+
+function finalizeCalibration(){
+  const acc = state.cal.acc;
+  const centerX = acc.n ? acc.x / acc.n : 0.5;
+  const centerY = acc.n ? acc.y / acc.n : 0.5;
+  let rangeX = acc.maxX - acc.minX;
+  let rangeY = acc.maxY - acc.minY;
+  let warning = '';
+  if(!isFinite(rangeX) || rangeX < 0.05){ rangeX = 0.12; warning = 'Horizontal range was very small; try a wider movement next time. '; }
+  if(!isFinite(rangeY) || rangeY < 0.05){ rangeY = 0.12; warning += 'Vertical range was very small; try a taller movement next time.'; }
+  state.calibration[calKey()] = {
+    part: state.settings.part, side: state.settings.side,
+    centerX: centerX, centerY: centerY,
+    minX: acc.minX, maxX: acc.maxX, minY: acc.minY, maxY: acc.maxY,
+    rangeX: rangeX, rangeY: rangeY,
+    savedAt: new Date().toISOString()
+  };
+  saveCal();
+  $('cal-status').innerHTML = warning +
+    'Calibration saved. Horizontal range ' + (rangeX*100).toFixed(1) + '% of frame, vertical range ' +
+    (rangeY*100).toFixed(1) + '%. You can recalibrate any time.';
+  flashSaved();
+}
+
+function renderCalSteps(){
+  const items = document.querySelectorAll('#cal-steps li');
+  items.forEach(function(li){
+    const i = Number(li.getAttribute('data-step'));
+    li.classList.toggle('active', i === state.cal.step);
+    li.classList.toggle('done', state.cal.active && i < state.cal.step);
+  });
+  if(state.cal.active){
+    const part = PART_LABEL[state.settings.part];
+    const st = CAL_STEPS[state.cal.step];
+    $('cal-status').textContent = st.label.replace('{part}', part) + ' - hold for ' + st.dur.toFixed(0) + 's';
+  }
+}
+
+function updateCalibration(dt){
+  if(!state.cal.active) return;
+  const st = CAL_STEPS[state.cal.step];
+  state.cal.t += dt;
+  const pct = Math.min(1, state.cal.t / st.dur) * 100;
+  const bar = $('fill-x');
+  // reuse the live bars to show progress while calibrating
+  if(state.cal.step === 0){ $('fill-x').style.width = pct + '%'; $('fill-y').style.width = pct + '%'; }
+  if(state.cal.t >= st.dur){
+    state.cal.step++;
+    state.cal.t = 0;
+    if(state.cal.step >= CAL_STEPS.length){
+      state.cal.active = false;
+      state.cal.step = -1;
+      $('cal-steps').querySelectorAll('li').forEach(function(li){ li.classList.remove('active','done'); });
+      $('btn-calibrate').disabled = false;
+      finalizeCalibration();
+      return;
+    }
+    renderCalSteps();
+  }
+}
+
+/* =====================================================================
+   NORMALISED CONTROL
+   ===================================================================== */
+function getCal(){
+  return state.calibration[calKey()] || null;
+}
+function computeControl(dt){
+  if(!state.hasRaw) return null;
+  const cal = getCal();
+  const sens = state.settings.sens;
+  const cx = cal ? cal.centerX : 0.5;
+  const cy = cal ? cal.centerY : 0.5;
+  const rx = cal ? Math.max(cal.rangeX, 0.05) : 0.25;
+  const ry = cal ? Math.max(cal.rangeY, 0.05) : 0.25;
+  let nx = (state.raw.x - cx) / (rx / 2);
+  let ny = (cy - state.raw.y) / (ry / 2);
+  if(state.settings.invert) ny = -ny;
+  nx *= sens; ny *= sens;
+  nx = clamp(nx, -1, 1); ny = clamp(ny, -1, 1);
+  if(state.settings.dead){
+    nx = deadZone(nx, 0.07);
+    ny = deadZone(ny, 0.07);
+  }
+  const a = Math.min(1, dt * 12);
+  if(!state.hasSmooth){ state.smoothed.x = nx; state.smoothed.y = ny; state.hasSmooth = true; }
+  state.smoothed.x += (nx - state.smoothed.x) * a;
+  state.smoothed.y += (ny - state.smoothed.y) * a;
+  return { x: state.smoothed.x, y: state.smoothed.y };
+}
+function clamp(v,a,b){ return v < a ? a : (v > b ? b : v); }
+function deadZone(v,d){ if(Math.abs(v) <= d) return 0; return Math.sign(v) * (Math.abs(v) - d) / (1 - d); }
+function rand(a,b){ return a + Math.random() * (b - a); }
+
+/* =====================================================================
+   THREE.JS WORLD
+   ===================================================================== */
+let renderer, scene, camera, waterTex, worldGroup, skyMesh;
+let movers = [], coins = [], plane = null;
+const planeState = { x:0, y:BASE_ALT, roll:0, pitch:0, bank:0, climb:0 };
+let routeLength = 3000;
+let currentSceneKey = null;
+
+function initThree(){
+  if(renderer) return true;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas:$('game-canvas'), antialias:true });
+  } catch(err){
+    renderer = null;
+    const cv = $('game-canvas');
+    if(cv){
+      const ctx = cv.getContext('2d');
+      if(ctx){ cv.width = window.innerWidth; cv.height = window.innerHeight;
+        ctx.fillStyle = '#0b1524'; ctx.fillRect(0,0,cv.width,cv.height);
+        ctx.fillStyle = '#9db4cc'; ctx.font = '16px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('WebGL is not available in this browser, so the 3D view cannot start.', cv.width/2, cv.height/2);
+      }
+    }
+    console.error('WebGL unavailable:', err);
+    return false;
+  }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.setClearColor(0xbcd9f2, 1);
+
+  scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0xc3dcf3, 320, 1500);
+
+  camera = new THREE.PerspectiveCamera(62, window.innerWidth/window.innerHeight, 0.5, 9000);
+  camera.position.set(0, BASE_ALT + 8, 26);
+  camera.lookAt(0, BASE_ALT, -40);
+
+  scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x27405c, 0.95));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.85);
+  sun.position.set(-260, 420, 180);
+  scene.add(sun);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.28));
+
+  // sky dome
+  skyMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(4200, 32, 18),
+    new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite:false,
+      uniforms:{ top:{value:new THREE.Color(0x1f66ad)}, mid:{value:new THREE.Color(0x8fc0e8)}, bot:{value:new THREE.Color(0xdfeefb)} },
+      vertexShader:'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+      fragmentShader:'uniform vec3 top; uniform vec3 mid; uniform vec3 bot; varying vec3 vP; void main(){ float h = normalize(vP).y; float t = clamp(h*1.6+0.15,0.0,1.0); vec3 c = t<0.5 ? mix(bot,mid,t*2.0) : mix(mid,top,(t-0.5)*2.0); gl_FragColor = vec4(c,1.0); }'
+    })
+  );
+  scene.add(skyMesh);
+
+  // water
+  waterTex = makeWaterTexture();
+  const water = new THREE.Mesh(
+    new THREE.PlaneGeometry(16000, 16000),
+    new THREE.MeshPhongMaterial({ color:0x2c6f9e, map:waterTex, shininess:70, specular:0x9fd4ff })
+  );
+  water.rotation.x = -Math.PI/2;
+  water.position.y = 0;
+  scene.add(water);
+
+  worldGroup = new THREE.Group();
+  scene.add(worldGroup);
+
+  createPlane();
+  createCoins();
+  renderer.setSize(window.innerWidth, window.innerHeight, false);
+  return true;
+}
+
+function makeWaterTexture(){
+  const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#23618c'; g.fillRect(0,0,256,256);
+  for(let i=0;i<520;i++){
+    g.strokeStyle = 'rgba(220,240,255,' + (Math.random()*0.09).toFixed(3) + ')';
+    g.lineWidth = Math.random() < 0.5 ? 1 : 2;
+    const y = Math.random()*256;
+    g.beginPath(); g.moveTo(Math.random()*256, y);
+    g.lineTo(Math.random()*256, y + (Math.random()*5 - 2.5)); g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(90, 90);
+  return t;
+}
+
+/* ------------------------- geometry helpers ------------------------- */
+const BUILDING_KINDS = {
+  glass:   { base:'#2f5e8c', win:'#cfe9ff', lit:0.55 },
+  glass2:  { base:'#3c76b0', win:'#e6f6ff', lit:0.5 },
+  concrete:{ base:'#8d99a7', win:'#d3e0ec', lit:0.65 },
+  dark:    { base:'#4d5966', win:'#9cc3e6', lit:0.5 },
+  sand:    { base:'#c9b894', win:'#fff1cf', lit:0.6 }
+};
+const texCache = {};
+function buildingTexture(kind){
+  if(texCache[kind]) return texCache[kind];
+  const def = BUILDING_KINDS[kind] || BUILDING_KINDS.concrete;
+  const c = document.createElement('canvas'); c.width = 64; c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = def.base; g.fillRect(0,0,64,128);
+  for(let y=4; y<126; y+=8){
+    for(let x=4; x<62; x+=8){
+      if(Math.random() < def.lit){
+        g.fillStyle = def.win;
+        if(Math.random() < 0.35) g.globalAlpha = 0.45;
+        g.fillRect(x, y, 5, 5);
+        g.globalAlpha = 1;
+      } else {
+        g.fillStyle = 'rgba(0,0,0,0.22)';
+        g.fillRect(x, y, 5, 5);
+      }
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  texCache[kind] = t;
+  return t;
+}
+function addBuilding(parent, w, h, d, x, z, kind){
+  const tex = buildingTexture(kind).clone();
+  tex.needsUpdate = true;
+  tex.repeat.set(Math.max(1, Math.round(w/7)), Math.max(1, Math.round(h/7)));
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d),
+    new THREE.MeshLambertMaterial({ map:tex }));
+  m.position.set(x, h/2, z);
+  parent.add(m);
+  // rooftop cap
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(w*0.96, 1.4, d*0.96),
+    new THREE.MeshLambertMaterial({ color:0x6b7783 }));
+  cap.position.set(x, h + 0.7, z);
+  parent.add(cap);
+  return m;
+}
+function addBox(parent, w, h, d, color, x, y, z, ry){
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), new THREE.MeshLambertMaterial({ color:color }));
+  m.position.set(x,y,z); if(ry) m.rotation.y = ry; parent.add(m); return m;
+}
+function addCyl(parent, rt, rb, h, seg, color, x, y, z){
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), new THREE.MeshLambertMaterial({ color:color }));
+  m.position.set(x,y,z); parent.add(m); return m;
+}
+function addCone(parent, r, h, seg, color, x, y, z){
+  const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, seg), new THREE.MeshLambertMaterial({ color:color }));
+  m.position.set(x,y,z); parent.add(m); return m;
+}
+function addSphere(parent, r, color, x, y, z){
+  const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), new THREE.MeshLambertMaterial({ color:color }));
+  m.position.set(x,y,z); parent.add(m); return m;
+}
+function addGround(parent, w, d, color, x, y, z){
+  return addBox(parent, w, 2.4, d, color, x, y, z);
+}
+function addLine(parent, points, color, opacity){
+  const g = new THREE.BufferGeometry().setFromPoints(points);
+  const m = new THREE.LineBasicMaterial({ color:color, transparent:opacity !== undefined, opacity:opacity === undefined ? 1 : opacity });
+  const line = new THREE.Line(g, m);
+  parent.add(line); return line;
+}
+
+/* --------------------------- LANDMARKS --------------------------- */
+function towerBlock(g, cx, z0, list, kindDefault){
+  for(let i=0;i<list.length;i++){
+    const b = list[i];
+    addBuilding(g, b[0], b[1], b[2], cx + b[3], z0 + b[4], b[5] || kindDefault);
+  }
+}
+function buildCentral(g, z0){
+  z0 = z0 || 0;
+  addGround(g, 460, 720, 0x4a5560, -190, -1.2, z0);
+  // IFC-style tower
+  const ifc = addBuilding(g, 30, 132, 30, -150, z0 - 30, 'glass2');
+  addCyl(g, 12, 16, 18, 12, 0xb9c9d8, -150, 138, z0 - 30);
+  // Bank of China style
+  const boc = addBuilding(g, 30, 96, 26, -108, z0 + 60, 'dark');
+  addCone(g, 11, 22, 4, 0x8a97a5, -108, 108, z0 + 60);
+  // Central Plaza style with spire
+  addBuilding(g, 26, 118, 26, -210, z0 - 120, 'glass');
+  addCyl(g, 0.8, 2.4, 34, 8, 0xd8e4ef, -210, 152, z0 - 120);
+  // HSBC-ish with mechanical crown
+  addBuilding(g, 34, 62, 30, -168, z0 + 120, 'concrete');
+  addBox(g, 30, 4, 26, 0x9aa6b3, -168, 66, z0 + 120);
+  towerBlock(g, -200, z0, [
+    [22,74,22,40,10,'glass'],[18,58,18,80,40,'concrete'],[20,88,20,52,-60,'glass2'],
+    [16,52,16,4,-90,'dark'],[24,66,24,-70,80,'concrete'],[18,104,18,40,-150,'glass2'],
+    [20,70,20,-30,150,'dark'],[16,46,16,-100,170,'concrete'],[22,80,22,-150,40,'glass'],
+    [18,60,18,20,-40,'concrete']
+  ], 'glass');
+  // promenade + ferris wheel accent
+  addCyl(g, 9, 9, 3, 20, 0xc0392b, -120, 16, z0 + 20);
+  addBox(g, 2, 30, 2, 0x7f8c98, -129, 15, z0 + 20);
+  addBox(g, 2, 30, 2, 0x7f8c98, -111, 15, z0 + 20);
+}
+function buildTST(g, z0){
+  z0 = z0 || 0;
+  addGround(g, 420, 720, 0x59626c, 190, -1.2, z0);
+  // Clock tower
+  addBox(g, 6, 44, 6, 0xd8c7a2, 150, 22, z0);
+  addBox(g, 8, 5, 8, 0xe8dbb8, 150, 46, z0);
+  addCone(g, 5, 8, 4, 0x7d6b4a, 150, 52, z0);
+  // Cultural Centre (curved roofs)
+  addBox(g, 46, 16, 30, 0xd6dbe0, 210, 8, z0 - 50);
+  addBox(g, 30, 14, 24, 0xcfd6dc, 226, 16, z0 - 62, 0.16);
+  addBox(g, 26, 12, 20, 0xc4ccd4, 236, 26, z0 - 74, 0.28);
+  // Space Museum dome
+  addBox(g, 30, 12, 30, 0xd9dde1, 250, 6, z0 + 60);
+  addSphere(g, 11, 0xbfc7cd, 250, 17, z0 + 60);
+  // Peninsula-style hotel
+  addBuilding(g, 34, 40, 24, 175, z0 + 110, 'sand');
+  addBox(g, 24, 16, 20, 0xd8c7a2, 175, 48, z0 + 110);
+  towerBlock(g, 220, z0, [
+    [26,66,26,50,20,'glass2'],[22,90,22,80,-40,'glass'],
+    [20,54,20,10,-110,'concrete'],[24,74,24,-40,90,'dark'],
+    [18,48,18,60,150,'concrete'],[22,62,22,110,-20,'glass2']
+  ], 'glass2');
+  // Star Ferry pier
+  addBox(g, 30, 4, 14, 0x8b6c4a, 130, 3, z0 + 30);
+  addBox(g, 14, 5, 6, 0x2e86c1, 60, 2.5, z0 + 40);
+}
+function buildHarbour(g, z0){
+  z0 = z0 || 0;
+  // two shorelines with water between
+  addGround(g, 380, 900, 0x4a5560, -230, -1.2, z0);
+  addGround(g, 380, 900, 0x59626c, 230, -1.2, z0);
+  towerBlock(g, -230, z0, [
+    [24,96,24,20,-80,'glass2'],[20,70,20,40,20,'concrete'],[18,120,18,16,-180,'glass'],
+    [22,60,22,60,110,'dark'],[16,140,16,36,180,'glass2'],[20,80,20,0,60,'concrete'],
+    [18,54,18,70,-120,'concrete']
+  ], 'glass');
+  towerBlock(g, 230, z0, [
+    [22,74,22,-30,-40,'glass'],[18,52,18,-60,60,'concrete'],[24,100,24,-10,140,'glass2'],
+    [16,64,16,-70,-150,'dark'],[20,86,20,-20,10,'glass']
+  ], 'glass2');
+  // Convention and Exhibition Centre (curved white roof on the water edge)
+  addBox(g, 60, 12, 36, 0xdfe6ec, -150, 6, z0 + 30);
+  const roof = addCyl(g, 20, 20, 40, 24, 0xeef3f7, -150, 14, z0 + 30);
+  roof.rotation.z = Math.PI/2;
+  roof.scale.set(1, 1, 0.55);
+  // Star Ferries
+  for(let i=0;i<3;i++){
+    const fx = -20 + i*70, fz = z0 + 40 - i*90;
+    addBox(g, 18, 4, 7, 0x2e86c1, fx, 3, fz);
+    addBox(g, 10, 3, 5, 0xe9eef2, fx, 6, fz);
+  }
+  // junk boat
+  addBox(g, 14, 4, 5, 0x8d5524, 60, 2.5, z0 - 90);
+}
+function buildBridge(g, z0){
+  z0 = z0 || 0;
+  // hills on both sides (Tsing Yi / Ma Wan)
+  addCone(g, 210, 150, 7, 0x2f5d3a, -340, 60, z0 - 40);
+  addCone(g, 170, 110, 6, 0x35663f, -300, 45, z0 + 150);
+  addCone(g, 200, 130, 7, 0x2f5d3a, 340, 55, z0 + 60);
+  // deck spanning the channel
+  addBox(g, 640, 5, 26, 0xb9c2ca, 0, 34, z0);
+  addBox(g, 640, 3, 6, 0x9aa4ad, 0, 36.5, z0 + 11);
+  addBox(g, 640, 3, 6, 0x9aa4ad, 0, 36.5, z0 - 11);
+  // towers
+  [-72, 72].forEach(function(tx){
+    addBox(g, 10, 120, 12, 0xd8dde2, tx, 60, z0);
+    addBox(g, 34, 8, 12, 0xd8dde2, tx, 96, z0);
+    addBox(g, 34, 8, 12, 0xd8dde2, tx, 58, z0);
+  });
+  // main cables (parabolic) + hangers
+  [-72, 72].forEach(function(tx, idx){
+    const pts = [];
+    for(let i=0;i<=40;i++){
+      const t = i/40;
+      const x = -330 + t*660;
+      const sag = 96 + 30 * Math.sin(Math.PI * t);
+      pts.push(new THREE.Vector3(x, sag, z0 + (idx === 0 ? 12 : -12)));
+    }
+    addLine(g, pts, 0x7f8a95, 0.85);
+  });
+  for(let i=0;i<=32;i++){
+    const x = -320 + i*20;
+    const t = (x + 330)/660;
+    const top = 96 + 30 * Math.sin(Math.PI * clamp(t,0,1));
+    addLine(g, [new THREE.Vector3(x, 36.5, z0 + 12), new THREE.Vector3(x, top, z0 + 12)], 0x8a949e, 0.5);
+    addLine(g, [new THREE.Vector3(x, 36.5, z0 - 12), new THREE.Vector3(x, top, z0 - 12)], 0x8a949e, 0.5);
+  }
+  // approach viaducts
+  addBox(g, 120, 5, 22, 0xb9c2ca, -380, 30, z0);
+  addBox(g, 120, 5, 22, 0xb9c2ca, 380, 30, z0);
+}
+function buildAirport(g, z0){
+  z0 = z0 || 0;
+  // reclaimed island
+  addGround(g, 900, 1400, 0x6e7780, 0, -1.6, z0 - 200);
+  // parallel runways
+  [-70, 70].forEach(function(rx){
+    const rw = addBox(g, 40, 1.2, 900, 0x2f3336, rx, 0.6, z0 - 200);
+    for(let z=-600; z<=250; z+=26){
+      addBox(g, 2, 0.4, 12, 0xe8eef2, rx, 1.3, z0 - 200 + z);
+    }
+    for(let z=-600; z<=250; z+=40){
+      addBox(g, 6, 0.4, 3, 0xe8eef2, rx - 17, 1.3, z0 - 200 + z);
+      addBox(g, 6, 0.4, 3, 0xe8eef2, rx + 17, 1.3, z0 - 200 + z);
+    }
+  });
+  // terminal
+  addBox(g, 260, 20, 70, 0xd3dae0, 0, 10, z0 + 210);
+  for(let i=0;i<26;i++){ addBox(g, 8, 8, 16, 0xbcc7d0, -120 + i*10, 24, z0 + 205); }
+  // control tower
+  addCyl(g, 3, 5, 60, 10, 0xd6dde3, 90, 30, z0 + 250);
+  addBox(g, 14, 10, 14, 0x2f4f6e, 90, 64, z0 + 250);
+  // parked planes
+  for(let i=0;i<6;i++){
+    const px = -110 + i*44, pz = z0 + 120;
+    addBox(g, 26, 3, 3, 0xf2f4f6, px, 3, pz);
+    addBox(g, 3, 3, 3, 0xf2f4f6, px, 4.5, pz);
+    addBox(g, 10, 2, 2, 0xdfe4e8, px, 2.4, pz + 9);
+  }
+  // landside buildings
+  towerBlock(g, 0, z0, [
+    [40,26,30,-260,300,'concrete'],[36,22,26,260,320,'concrete'],[44,30,30,0,330,'concrete']
+  ], 'concrete');
+  // Lantau hills in the distance
+  addCone(g, 300, 200, 6, 0x2c5637, -420, 80, z0 - 520);
+  addCone(g, 260, 160, 6, 0x336340, 420, 65, z0 - 480);
+}
+/* ------------------------------ clouds ------------------------------ */
+function addClouds(g, z0, z1, n){
+  for(let i=0;i<n;i++){
+    const cx = rand(-360, 360), cz = rand(z1, z0), cy = rand(95, 185);
+    const cloud = new THREE.Group();
+    const s = rand(0.7, 1.6);
+    const puffs = 4 + Math.floor(Math.random()*4);
+    for(let p=0;p<puffs;p++){
+      const pm = new THREE.Mesh(new THREE.SphereGeometry(rand(7,13)*s, 8, 6),
+        new THREE.MeshLambertMaterial({ color:0xffffff, transparent:true, opacity:0.9 }));
+      pm.position.set(rand(-16,16)*s, rand(-3,3)*s, rand(-10,10)*s);
+      pm.scale.y = 0.62;
+      cloud.add(pm);
+    }
+    cloud.position.set(cx, cy, cz);
+    g.add(cloud);
+  }
+}
+
+/* ------------------------------ plane ------------------------------ */
+function createPlane(){
+  const g = new THREE.Group();
+  const white = new THREE.MeshLambertMaterial({ color:0xf3f6f9 });
+  const red   = new THREE.MeshLambertMaterial({ color:0xd6453f });
+  const blue  = new THREE.MeshLambertMaterial({ color:0x1f5fa8 });
+  const grey  = new THREE.MeshLambertMaterial({ color:0x9aa6b2 });
+
+  const fus = new THREE.Mesh(new THREE.CylinderGeometry(1.35, 1.15, 9, 16), white);
+  fus.rotation.x = Math.PI/2; g.add(fus);
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(1.35, 2.6, 16), white);
+  nose.rotation.x = -Math.PI/2; nose.position.z = -5.6; g.add(nose);
+  const tailCone = new THREE.Mesh(new THREE.ConeGeometry(1.15, 2.4, 16), white);
+  tailCone.rotation.x = Math.PI/2; tailCone.position.z = 5.5; g.add(tailCone);
+
+  const wing = new THREE.Mesh(new THREE.BoxGeometry(19, 0.5, 3.4), white);
+  wing.position.set(0, -0.2, 0.6); g.add(wing);
+  const wingStripe = new THREE.Mesh(new THREE.BoxGeometry(19.1, 0.16, 1.0), red);
+  wingStripe.position.set(0, 0.06, 0.6); g.add(wingStripe);
+
+  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4.2, 3.0), blue);
+  fin.position.set(0, 2.2, 4.4); g.add(fin);
+  const finRed = new THREE.Mesh(new THREE.BoxGeometry(0.56, 1.4, 3.06), red);
+  finRed.position.set(0, 3.6, 4.4); g.add(finRed);
+
+  const stab = new THREE.Mesh(new THREE.BoxGeometry(7.4, 0.36, 1.9), white);
+  stab.position.set(0, 0.4, 4.8); g.add(stab);
+  const stabStripe = new THREE.Mesh(new THREE.BoxGeometry(7.5, 0.12, 0.7), red);
+  stabStripe.position.set(0, 0.6, 4.8); g.add(stabStripe);
+
+  const bodyStripe = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.36, 8.6), blue);
+  bodyStripe.position.set(0, -1.15, 0); g.add(bodyStripe);
+
+  [-6.2, 6.2].forEach(function(ex){
+    const eng = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 0.9, 3.6, 12), grey);
+    eng.rotation.x = Math.PI/2;
+    eng.position.set(ex, -0.9, 1.4); g.add(eng);
+    const intake = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.05, 0.4, 12), new THREE.MeshLambertMaterial({ color:0x2b3138 }));
+    intake.rotation.x = Math.PI/2; intake.position.set(ex, -0.9, -0.45); g.add(intake);
+  });
+
+  g.position.set(0, BASE_ALT, 0);
+  scene.add(g);
+  plane = g;
+}
+
+/* --------------------------- scene loading --------------------------- */
+function buildScene(key){
+  if(!initThree()) return;
+  // clear
+  for(let i=worldGroup.children.length - 1; i >= 0; i--){ worldGroup.remove(worldGroup.children[i]); }
+  movers = [];
+  currentSceneKey = key;
+  const def = SCENES[key] || SCENES.harbour;
+  routeLength = def.repeat * def.count;
+
+  for(let k=0;k<def.count;k++){
+    const g = new THREE.Group();
+    g.position.z = -k * def.repeat;
+    const fn = def.seq ? def.seq[k % def.seq.length] : def.fn;
+    fn(g, 0);
+    worldGroup.add(g);
+    movers.push(g);
+  }
+  // clouds as their own movers (spread over the route)
+  const clouds = new THREE.Group();
+  addClouds(clouds, 0, -routeLength, Math.max(14, Math.round(routeLength/220)));
+  worldGroup.add(clouds);
+  movers.push(clouds);
+
+  resetCoins();
+  resetPlane();
+}
+
+function createCoins(){
+  const geo = new THREE.TorusGeometry(1.7, 0.55, 8, 20);
+  const mat = new THREE.MeshLambertMaterial({ color:0xffc21e, emissive:0x8a5b00 });
+  for(let i=0;i<COIN_COUNT;i++){
+    const c = new THREE.Mesh(geo, mat);
+    scene.add(c);
+    coins.push(c);
+  }
+  resetCoins();
+}
+function recycleCoin(c){
+  c.position.z -= (routeLength * 0.55 + rand(0, routeLength * 0.45));
+  c.position.x = rand(-LAT_RANGE+4, LAT_RANGE-4);
+  c.position.y = BASE_ALT + rand(-VERT_RANGE+3, VERT_RANGE-3);
+  c.visible = true;
+}
+function resetCoins(){
+  const gap = routeLength / COIN_COUNT;
+  for(let i=0;i<coins.length;i++){
+    const c = coins[i];
+    c.position.set(rand(-LAT_RANGE+4, LAT_RANGE-4), BASE_ALT + rand(-VERT_RANGE+3, VERT_RANGE-3), -(i+1)*gap);
+    c.visible = true;
+    c.rotation.set(0,0, rand(0, Math.PI*2));
+  }
+}
+function resetPlane(){
+  planeState.x = 0; planeState.y = BASE_ALT; planeState.roll = 0; planeState.pitch = 0;
+  planeState.bank = 0; planeState.climb = 0;
+  if(plane){ plane.position.set(0, BASE_ALT, 0); plane.rotation.set(0,0,0); }
+}
+
+/* =====================================================================
+   GAME LOGIC
+   ===================================================================== */
+const game = {
+  phase: 'idle',       // idle | countdown | running | paused | ended
+  countdown: 0,
+  elapsed: 0,
+  timeLeft: 0,
+  timeLimit: 0,        // seconds, 0 = unlimited
+  coins: 0,
+  speed: SPEED,
+  dt: 0
+};
+
+function startGame(fresh){
+  if(fresh || game.phase === 'idle' || game.phase === 'ended'){
+    resetEpisode();
+    game.phase = 'countdown';
+    game.countdown = 3.2;
+    showMessage('3');
+  } else if(game.phase === 'paused'){
+    game.phase = 'running';
+    showMessage('');
+  }
+  updateGameButtons();
+}
+
+function resetEpisode(){
+  resetPlane();
+  resetCoins();
+  game.elapsed = 0;
+  game.coins = 0;
+  const mode = state.settings.timeLimit;
+  game.timeLimit = mode === '0' ? 0 : parseInt(mode,10) * 60;
+  game.timeLeft = game.timeLimit;
+  state.hasSmooth = false;
+  updateHud(true);
+}
+
+function stopGame(){
+  if(game.phase === 'running' || game.phase === 'countdown'){
+    game.phase = 'paused';
+    showMessage('Paused', 'Press Start to resume');
+    updateGameButtons();
+  }
+}
+
+function exitGame(){
+  if(game.phase === 'running' || game.phase === 'paused' || game.phase === 'countdown'){
+    if(game.elapsed > 5) recordEpisode('Exited');
+  }
+  game.phase = 'idle';
+  showMessage('');
+  go('setup');
+  updateGameButtons();
+}
+
+function endGame(){
+  game.phase = 'ended';
+  recordEpisode('Completed');
+  showMessage('');
+  playChime(true);
+  showResults();
+  updateGameButtons();
+}
+
+function restartGame(){
+  resetEpisode();
+  game.phase = 'countdown';
+  game.countdown = 3.2;
+  showMessage('3');
+  updateGameButtons();
+}
+
+function recordEpisode(status){
+  const rec = {
+    when: new Date().toISOString(),
+    scene: (SCENES[currentSceneKey] || SCENES.harbour).name,
+    part: PART_LABEL[state.settings.part],
+    side: state.settings.side,
+    coins: game.coins,
+    seconds: Math.floor(game.elapsed),
+    score: game.coins * 100 + Math.floor(game.elapsed) * 5,
+    status: status
+  };
+  const list = loadRecords();
+  list.unshift(rec);
+  saveRecords(list.slice(0, 60));
+  renderRecords();
+  return rec;
+}
+
+function showResults(){
+  const rec = loadRecords()[0] || { coins:game.coins, seconds:Math.floor(game.elapsed), score:game.coins*100+Math.floor(game.elapsed)*5, scene:'-', status:'Completed' };
+  $('result-title').textContent = game.timeLimit ? "Time's up!" : 'Flight ended';
+  $('result-sub').textContent = "Coins collected: " + game.coins + ". Result recorded to your episode log.";
+  $('res-coins').textContent = String(game.coins);
+  $('res-time').textContent = fmtTime(game.elapsed);
+  $('res-scene').textContent = rec.scene;
+  $('res-score').textContent = String(rec.score);
+  $('result-modal').classList.add('show');
+}
+
+function updateGameButtons(){
+  const b = $('btn-g-start'), s = $('btn-g-stop');
+  if(game.phase === 'paused'){ b.textContent = 'Resume'; b.disabled = false; }
+  else if(game.phase === 'running' || game.phase === 'countdown'){ b.textContent = 'Running'; b.disabled = true; }
+  else { b.textContent = 'Start'; b.disabled = false; }
+  s.disabled = !(game.phase === 'running' || game.phase === 'countdown');
+}
+
+let msgTimer = 0;
+function showMessage(text, sub){
+  const el = $('game-message');
+  if(!text){ el.classList.remove('show'); el.innerHTML = ''; return; }
+  el.innerHTML = text + (sub ? '<small>' + sub + '</small>' : '');
+  el.classList.add('show');
+}
+
+function fmtTime(sec){
+  sec = Math.max(0, Math.floor(sec));
+  const m = Math.floor(sec/60), s = sec%60;
+  return m + ':' + (s<10?'0':'') + s;
+}
+
+function updateGame(dt){
+  const ctrl = computeControl(dt) || { x:0, y:0 };
+
+  if(game.phase === 'countdown'){
+    game.countdown -= dt;
+    const n = Math.ceil(game.countdown - 0.2);
+    if(game.countdown <= 0.2){ showMessage('GO'); }
+    else showMessage(String(Math.max(1,n)));
+    if(game.countdown <= 0){ game.phase = 'running'; showMessage(''); }
+  }
+
+  // keyboard fallback (always available, blended)
+  let kx = 0, ky = 0;
+  if(state.keys['ArrowLeft'] || state.keys['a']) kx -= 1;
+  if(state.keys['ArrowRight'] || state.keys['d']) kx += 1;
+  if(state.keys['ArrowUp'] || state.keys['w']) ky += 1;
+  if(state.keys['ArrowDown'] || state.keys['s']) ky -= 1;
+  kx = clamp(kx, -1, 1); ky = clamp(ky, -1, 1);
+  const inx = Math.abs(kx) > Math.abs(ctrl.x) ? kx : ctrl.x;
+  const iny = Math.abs(ky) > Math.abs(ctrl.y) ? ky : ctrl.y;
+
+  if(game.phase === 'running'){
+    game.elapsed += dt;
+    if(game.timeLimit > 0){
+      game.timeLeft -= dt;
+      if(game.timeLeft <= 0){ game.timeLeft = 0; updateHud(); endGame(); return; }
+      if(game.timeLeft <= 10 && Math.floor(game.timeLeft) !== Math.floor(game.timeLeft + dt)){
+        playChime(false);
+      }
+    }
+  }
+
+  const moving = game.phase === 'running';
+  const step = moving ? game.speed * dt : 0;
+
+  // plane targets
+  const tx = clamp(inx, -1, 1) * LAT_RANGE;
+  const ty = BASE_ALT + clamp(iny, -1, 1) * VERT_RANGE;
+  const lerp = Math.min(1, dt * 4.5);
+  planeState.x += (tx - planeState.x) * lerp;
+  planeState.y += (ty - planeState.y) * lerp;
+  planeState.bank += (inx - planeState.bank) * Math.min(1, dt*4);
+  planeState.climb += (iny - planeState.climb) * Math.min(1, dt*4);
+  planeState.roll = -planeState.bank * 0.55;
+  planeState.pitch = planeState.climb * 0.22;
+
+  if(plane){
+    plane.position.set(planeState.x, planeState.y, 0);
+    plane.rotation.z = planeState.roll;
+    plane.rotation.x = planeState.pitch;
+    plane.rotation.y = planeState.bank * 0.18;
+  }
+
+  if(step > 0){
+    // world moves toward camera
+    for(let i=0;i<movers.length;i++){
+      const m = movers[i];
+      m.position.z += step;
+      if(m.position.z > 230) m.position.z -= routeLength;
+    }
+    waterTex.offset.y += dt * 0.03;
+    // coins
+    for(let i=0;i<coins.length;i++){
+      const c = coins[i];
+      c.position.z += step;
+      c.rotation.z += dt * 2.6;
+      const dz = c.position.z;
+      const dx = c.position.x - planeState.x;
+      const dy = c.position.y - planeState.y;
+      if(dz > -5 && dz < 5 && dx*dx + dy*dy < COIN_HIT_XY*COIN_HIT_XY){
+        game.coins++;
+        playCoin();
+        recycleCoin(c);
+        updateHud(true);
+      } else if(c.position.z > 40){
+        recycleCoin(c);
+      }
+    }
+  }
+
+  updateCamera(dt);
+  updateHud();
+}
+
+function updateCamera(dt){
+  const cx = planeState.x * 0.92;
+  const cy = planeState.y + 7.5;
+  const t = Math.min(1, dt * 5);
+  camera.position.x += (cx - camera.position.x) * t;
+  camera.position.y += (cy - camera.position.y) * t;
+  camera.position.z = 27;
+  camera.lookAt(planeState.x * 0.97, planeState.y + 1.5, -46);
+  if(skyMesh) skyMesh.position.copy(camera.position);
+}
+
+let hudAcc = 0;
+function updateHud(force){
+  hudAcc += 1;
+  if(!force && hudAcc % 4 !== 0) return;
+  const timer = $('hud-timer');
+  if(game.timeLimit > 0){
+    timer.textContent = fmtTime(game.timeLeft);
+    timer.classList.toggle('low', game.timeLeft <= 30);
+  } else {
+    timer.textContent = fmtTime(game.elapsed);
+    timer.classList.remove('low');
+  }
+  $('hud-coins').textContent = String(game.coins);
+  $('hud-speed').textContent = 'Speed ' + Math.round(SPEED) + ' kt';
+  const c = state.smoothed;
+  $('hud-nx').textContent = c.x.toFixed(2);
+  $('hud-ny').textContent = c.y.toFixed(2);
+  $('hud-fx').style.width = ((c.x + 1) / 2 * 100).toFixed(1) + '%';
+  $('hud-fy').style.width = ((c.y + 1) / 2 * 100).toFixed(1) + '%';
+}
+
+/* =====================================================================
+   CAMERA OVERLAY DRAWING
+   ===================================================================== */
+const POSE_BONES = [
+  [11,12],[11,23],[12,24],[23,24],[11,13],[13,15],[12,14],[14,16],
+  [23,25],[25,27],[24,26],[26,28]
+];
+
+function drawOverlay(canvas){
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+  if(!state.cameraReady || !video.videoWidth) return;
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const scale = Math.max(w/vw, h/vh);
+  const dw = vw*scale, dh = vh*scale, dx = (w - dw)/2, dy = (h - dh)/2;
+
+  ctx.save();
+  ctx.translate(w, 0); ctx.scale(-1, 1);
+  ctx.drawImage(video, dx, dy, dw, dh);
+  ctx.restore();
+
+  if(!state.landmarks) return;
+  const lms = state.landmarks;
+  function sx(p){ return w - dx - p.x * dw; }
+  function sy(p){ return dy + p.y * dh; }
+
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(80,200,255,0.85)';
+  ctx.beginPath();
+  for(let i=0;i<POSE_BONES.length;i++){
+    const a = lms[POSE_BONES[i][0]], b = lms[POSE_BONES[i][1]];
+    if(!a || !b) continue;
+    const vis = Math.min(a.visibility||1, b.visibility||1);
+    if(vis < 0.35) continue;
+    ctx.moveTo(sx(a), sy(a));
+    ctx.lineTo(sx(b), sy(b));
+  }
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  for(let i=0;i<lms.length;i++){
+    const vis = lms[i].visibility === undefined ? 1 : lms[i].visibility;
+    if(vis < 0.35) continue;
+    ctx.beginPath(); ctx.arc(sx(lms[i]), sy(lms[i]), 3, 0, Math.PI*2); ctx.fill();
+  }
+
+  // highlight the active control point
+  const c = state.raw;
+  if(state.hasRaw){
+    const px = dx + c.x * dw;             // raw.x is already mirrored
+    const py = dy + c.y * dh;
+    ctx.beginPath(); ctx.arc(px, py, 12, 0, Math.PI*2);
+    ctx.strokeStyle = '#ffcc33'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI*2);
+    ctx.fillStyle = '#ffcc33'; ctx.fill();
+    ctx.font = '600 13px sans-serif';
+    ctx.fillStyle = '#ffcc33';
+    ctx.fillText(PART_LABEL[state.settings.part].toUpperCase(), px + 16, py - 10);
+  }
+}
+
+/* =====================================================================
+   UI WIRING
+   ===================================================================== */
+function flashSaved(){
+  const el = $('save-flash');
+  el.classList.add('show');
+  setTimeout(function(){ el.classList.remove('show'); }, 1400);
+}
+
+function syncSettingsUI(){
+  $('sel-part').value = state.settings.part;
+  $('sel-side').value = state.settings.side;
+  $('sel-side').disabled = state.settings.part === 'trunk';
+  $('rng-sens').value = state.settings.sens;
+  $('sens-val').textContent = Number(state.settings.sens).toFixed(1) + 'x';
+  $('chk-invert').checked = state.settings.invert;
+  $('chk-dead').checked = state.settings.dead;
+  $('sel-time').value = state.settings.timeLimit;
+  $('sel-scene').value = state.settings.scene;
+  const cal = getCal();
+  if(cal){
+    $('cal-status').innerHTML = 'Calibrated for <b>' + PART_LABEL[cal.part] +
+      (cal.side && cal.side !== 'both' ? ' (' + cal.side + ')' : '') + '</b>. Horizontal ' +
+      (cal.rangeX*100).toFixed(1) + '%, vertical ' + (cal.rangeY*100).toFixed(1) + '%.';
+  } else {
+    $('cal-status').textContent = 'No calibration for this body part yet. Defaults will be used, but calibrating is recommended.';
+  }
+}
+
+function renderRecords(){
+  const list = loadRecords();
+  const body = $('rec-body');
+  $('rec-count').textContent = String(list.length);
+  if(!list.length){
+    body.innerHTML = '<tr><td colspan="5" class="hint">No flights recorded yet.</td></tr>';
+    return;
+  }
+  let html = '';
+  list.slice(0, 25).forEach(function(r){
+    const d = new Date(r.when);
+    const when = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    html += '<tr><td>' + when + '</td><td>' + r.scene + '</td><td>' + r.part +
+      (r.side && r.side !== 'both' ? '/' + r.side : '') + '</td><td class="num-col">' + r.coins +
+      '</td><td class="num-col">' + r.score + '</td></tr>';
+  });
+  body.innerHTML = html;
+}
+
+function bindUI(){
+  $('btn-to-setup').addEventListener('click', function(){ audio(); go('setup'); syncSettingsUI(); });
+  $('btn-back-welcome').addEventListener('click', function(){ go('welcome'); });
+  $('btn-welcome-help').addEventListener('click', function(){
+    alert('Camera requirements:\n\n- Use Chrome or Edge for best results.\n- Allow camera access when prompted.\n- Stand 1.5 to 2.5 m from the camera.\n- For hip, knee or ankle tracking, step back so your whole body is visible.\n- Even lighting and a plain background help accuracy.\n\nIf the camera is blocked, serve the folder with:\n  python3 -m http.server\nand open http://localhost:8000/hong-kong-flight.html');
+  });
+
+  $('btn-enable-cam').addEventListener('click', async function(){
+    audio();
+    const ok = await enableCamera();
+    if(ok) await initPose();
+    $('btn-calibrate').disabled = !(state.cameraReady && state.hasRaw);
+  });
+
+  $('btn-calibrate').addEventListener('click', startCalibration);
+  $('btn-clear-cal').addEventListener('click', function(){
+    delete state.calibration[calKey()];
+    saveCal();
+    syncSettingsUI();
+  });
+
+  $('sel-part').addEventListener('change', function(e){
+    state.settings.part = e.target.value;
+    $('sel-side').disabled = state.settings.part === 'trunk';
+    saveSettings(); syncSettingsUI();
+  });
+  $('sel-side').addEventListener('change', function(e){ state.settings.side = e.target.value; saveSettings(); syncSettingsUI(); });
+  $('rng-sens').addEventListener('input', function(e){ state.settings.sens = parseFloat(e.target.value); $('sens-val').textContent = Number(e.target.value).toFixed(1) + 'x'; });
+  $('rng-sens').addEventListener('change', function(){ saveSettings(); });
+  $('chk-invert').addEventListener('change', function(e){ state.settings.invert = e.target.checked; saveSettings(); });
+  $('chk-dead').addEventListener('change', function(e){ state.settings.dead = e.target.checked; saveSettings(); });
+  $('sel-time').addEventListener('change', function(e){ state.settings.timeLimit = e.target.value; saveSettings(); });
+  $('sel-scene').addEventListener('change', function(e){ state.settings.scene = e.target.value; saveSettings(); });
+  $('btn-save-settings').addEventListener('click', function(){ saveSettings(); syncSettingsUI(); flashSaved(); });
+  $('btn-clear-records').addEventListener('click', function(){
+    if(confirm('Clear all saved episode records?')){ saveRecords([]); renderRecords(); }
+  });
+
+  $('btn-to-game').addEventListener('click', async function(){
+    audio();
+    if(!state.cameraReady){
+      const ok = await enableCamera();
+      if(ok) await initPose();
+    }
+    saveSettings();
+    go('game');
+    buildScene(state.settings.scene);
+    $('hud-scene').textContent = (SCENES[state.settings.scene] || SCENES.harbour).name;
+    resetEpisode();
+    game.phase = 'idle';
+    showMessage('', '');
+    showMessage('Ready', 'Press Start to fly');
+    updateGameButtons();
+    resizeGame();
+  });
+
+  $('btn-g-start').addEventListener('click', function(){ audio(); startGame(false); });
+  $('btn-g-stop').addEventListener('click', stopGame);
+  $('btn-g-restart').addEventListener('click', function(){ audio(); restartGame(); });
+  $('btn-g-exit').addEventListener('click', exitGame);
+  $('btn-g-sound').addEventListener('click', function(){
+    state.soundOn = !state.soundOn;
+    this.textContent = 'Sound: ' + (state.soundOn ? 'On' : 'Off');
+  });
+  $('btn-g-pip').addEventListener('click', function(){
+    state.showPip = !state.showPip;
+    pipCanvas.classList.toggle('hidden', !state.showPip);
+    this.textContent = 'Camera: ' + (state.showPip ? 'On' : 'Off');
+  });
+
+  $('btn-res-again').addEventListener('click', function(){
+    $('result-modal').classList.remove('show');
+    restartGame();
+  });
+  $('btn-res-setup').addEventListener('click', function(){
+    $('result-modal').classList.remove('show');
+    game.phase = 'idle';
+    go('setup'); syncSettingsUI();
+  });
+  $('btn-res-close').addEventListener('click', function(){
+    $('result-modal').classList.remove('show');
+    game.phase = 'idle';
+    updateGameButtons();
+  });
+
+  window.addEventListener('keydown', function(e){
+    state.keys[e.key] = true;
+    if(state.screen === 'game'){
+      if(e.key === ' '){ e.preventDefault(); if(game.phase === 'running' || game.phase === 'countdown') stopGame(); else startGame(false); }
+      if(e.key === 'r' || e.key === 'R'){ restartGame(); }
+      if(e.key === 'Escape'){ exitGame(); }
+    }
+  });
+  window.addEventListener('keyup', function(e){ state.keys[e.key] = false; });
+
+  window.addEventListener('resize', function(){ resizeGame(); resizeSetupCanvas(); });
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden && game.phase === 'running'){ stopGame(); }
+  });
+}
+
+/* =====================================================================
+   RESIZE
+   ===================================================================== */
+function resizeSetupCanvas(){
+  const c = setupCanvas;
+  if(!c || !c.clientWidth) return;
+  c.width = c.clientWidth; c.height = c.clientHeight;
+}
+function resizeGame(){
+  if(!renderer) return;
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w/h; camera.updateProjectionMatrix();
+  if(pipCanvas && pipCanvas.clientWidth){ pipCanvas.width = pipCanvas.clientWidth; pipCanvas.height = pipCanvas.clientHeight; }
+}
+
+/* =====================================================================
+   MAIN LOOP
+   ===================================================================== */
+let last = performance.now();
+let poseAcc = 0;
+function tick(now){
+  requestAnimationFrame(tick);
+  let dt = (now - last) / 1000;
+  last = now;
+  if(dt > 0.05) dt = 0.05;
+  if(dt < 0) dt = 0;
+
+  // pose detection at up to ~33 fps
+  poseAcc += dt;
+  if(poseAcc >= 0.03){ poseAcc = 0; updatePose(); }
+
+  // calibration uses fixed step per frame
+  if(state.screen === 'setup'){
+    updateCalibration(dt);
+    if(!state.cal.active){
+      const ctrl = computeControl(dt);
+      if(ctrl){
+        $('fill-x').style.width = ((ctrl.x + 1)/2*100).toFixed(1) + '%';
+        $('fill-y').style.width = ((ctrl.y + 1)/2*100).toFixed(1) + '%';
+        $('live-x').textContent = ctrl.x.toFixed(2);
+        $('live-y').textContent = ctrl.y.toFixed(2);
+      }
+    } else {
+      const c = state.cal.acc;
+      $('live-x').textContent = (c.maxX > -Infinity ? ((c.minX+c.maxX)/2).toFixed(2) : '--');
+      $('live-y').textContent = (c.maxY > -Infinity ? ((c.minY+c.maxY)/2).toFixed(2) : '--');
+    }
+    drawOverlay(setupCanvas);
+    $('btn-calibrate').disabled = !(state.cameraReady && state.hasRaw) || state.cal.active;
+  }
+
+  if(state.screen === 'game'){
+    if(renderer){ updateGame(dt); renderer.render(scene, camera); }
+    if(state.showPip && state.cameraReady) drawOverlay(pipCanvas);
+  }
+}
+
+/* =====================================================================
+   INIT
+   ===================================================================== */
+function init(){
+  bindUI();
+  syncSettingsUI();
+  renderRecords();
+  initThree();
+  resizeGame();
+  requestAnimationFrame(tick);
+}
+init();
+
+})();
+</script>
+</body>
+</html>
